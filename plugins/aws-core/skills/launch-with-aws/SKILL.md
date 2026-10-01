@@ -190,7 +190,7 @@ Present the cost estimate and plan to the user. The `costEstimate` field in the 
 >
 > - App type: [detected type from analysis]
 > - Architecture: [target architecture from plan]
-> - Estimated monthly cost: $X.XX/month
+> - Estimated monthly cost: $X.XX/month ([costEstimate.region] pricing)
 > - Migration runs in: [regionName], [region]
 >
 > Ready to proceed? This will execute the migration in an AWS-managed environment (no cost to you) and produce the migrated snapshot for you to download.

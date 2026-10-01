@@ -46,6 +46,7 @@ import launch_api_client as api
 from archive import ArchiveError, parse_github_url, zip_local_repo
 from auth import SessionExpiredError, session_status, sign_out, start_auth, wait_for_auth
 from launch_config import (
+    ENV_BASE_URL,
     SUPPORTED_REGIONS,
     ConfigError,
     ResolvedRegion,
@@ -287,6 +288,29 @@ COMMANDS: dict[str, tuple[Callable[..., Any], int]] = {
 }
 
 
+# Commands that act on one existing launch, which lives in a single region.
+_LAUNCH_COMMANDS = {
+    "get-launch",
+    "get-launch-status",
+    "refine-plan",
+    "start-launch-execution",
+    "get-launch-download-url",
+    "delete-launch",
+}
+
+
+def _region_hint(command: str) -> str:
+    """Explain a missing launch by the region it was looked up in."""
+    # A base URL override is a single endpoint, so another region cannot help.
+    if command not in _LAUNCH_COMMANDS or os.environ.get(ENV_BASE_URL):
+        return ""
+    return (
+        f" Hint: no launch with this ID exists in {_region()}. A launch exists only in "
+        "the region it was created in; retry with --region set to that region "
+        f'(one of: {", ".join(SUPPORTED_REGIONS)}).'
+    )
+
+
 # Flags that may appear anywhere in the arguments, not just before the command.
 _GLOBAL_FLAGS = ("--region", "--aws-mcp-url")
 
@@ -312,7 +336,7 @@ def _parse_global_flags(args: list[str]) -> tuple[list[str], dict[str, str]]:
 def _usage() -> str:
     return (
         "Usage: launch_with_aws.py <command> [args...] "
-        f'[{" | ".join(f"{flag} <region>" for flag in _GLOBAL_FLAGS)}]\n\n'
+        f'[--region {"|".join(SUPPORTED_REGIONS)}] [--aws-mcp-url <url>]\n\n'
         "Commands:\n" + "\n".join(f"  {name}" for name in COMMANDS)
     )
 
@@ -354,6 +378,8 @@ def main() -> None:
                 " Hint: the backend rejected the Bearer token. Ensure you "
                 "signed in successfully."
             )
+        elif err.status == 404:
+            hint = _region_hint(command)
         _fail(f"{err}{hint}")
     except Exception:
         # Log the full exception locally; return a generic message.

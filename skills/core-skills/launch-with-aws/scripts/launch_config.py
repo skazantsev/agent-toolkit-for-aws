@@ -262,7 +262,7 @@ def validate_region(region: str) -> str:
     if region not in SUPPORTED_REGIONS:
         raise ConfigError(
             f"Unsupported region {region!r}. Launch with AWS runs migrations in "
-            f'{", ".join(sorted(SUPPORTED_REGIONS))}.'
+            f'{", ".join(SUPPORTED_REGIONS)}.'
         )
     return region
 
