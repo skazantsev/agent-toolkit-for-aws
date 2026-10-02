@@ -80,6 +80,17 @@ def _region() -> str:
     return _resolved_region().region
 
 
+def _launch_output(result: dict) -> dict:
+    """Unwrap a launch response for the agent, without the context questions.
+
+    The skill does not ask the optional context questions, and showing them
+    prompts the agent to ask anyway.
+    """
+    launch = result.get("launch", result)
+    launch.pop("contextInputs", None)
+    return launch
+
+
 def _default_repo_name(source: str) -> str:
     github = parse_github_url(source)
     if github:
@@ -158,7 +169,7 @@ def cmd_create_launch(source: str, name: str | None = None) -> None:
         launch_source = {"s3Upload": {"uploadId": target["uploadId"]}}
 
     result = api.create_launch(name=display_name, source=launch_source, region=region)
-    launch = result.get("launch", result)
+    launch = _launch_output(result)
     # The customer confirmed this region before the upload, so make it the default
     # for later runs, and tell the agent which region the launch now lives in.
     save_region(region)
@@ -170,7 +181,7 @@ def cmd_create_launch(source: str, name: str | None = None) -> None:
 def cmd_get_launch(launch_id: str, include: str | None = None) -> None:
     """Get launch details, optionally including specific sections."""
     result = api.get_launch(launch_id, include=include, region=_region())
-    _ok(result.get("launch", result))
+    _ok(_launch_output(result))
 
 
 def cmd_list_launches() -> None:
@@ -208,20 +219,9 @@ def cmd_delete_launch(launch_id: str) -> None:
     _ok({"deleted": True, "id": launch_id, "region": region})
 
 
-def cmd_refine_plan(launch_id: str, *context_pairs: str) -> None:
-    """Refine a launch plan with context answers (key=value pairs)."""
-    context_answers = {}
-    for pair in context_pairs:
-        if "=" in pair:
-            key, value = pair.split("=", 1)
-            context_answers[key.strip()] = value.strip()
-    result = api.refine_plan(launch_id, context_answers=context_answers or None, region=_region())
-    _ok(result.get("launch", {}))
-
-
 def cmd_start_launch_execution(launch_id: str) -> None:
     """Start execution of a launch's deployment plan."""
-    _ok(api.start_launch_execution(launch_id, region=_region()).get("launch", {}))
+    _ok(_launch_output(api.start_launch_execution(launch_id, region=_region())))
 
 
 def cmd_get_launch_status(launch_id: str) -> None:
@@ -248,9 +248,6 @@ def cmd_get_launch_status(launch_id: str) -> None:
 
     if result.get("failureReason"):
         output["failureReason"] = result["failureReason"]
-
-    if result.get("contextInputs"):
-        output["contextInputs"] = result["contextInputs"]
 
     _ok(output)
 
@@ -281,7 +278,6 @@ COMMANDS: dict[str, tuple[Callable[..., Any], int]] = {
     "get-launch": (cmd_get_launch, 1),
     "list-launches": (cmd_list_launches, 0),
     "delete-launch": (cmd_delete_launch, 1),
-    "refine-plan": (cmd_refine_plan, 1),
     "start-launch-execution": (cmd_start_launch_execution, 1),
     "get-launch-status": (cmd_get_launch_status, 1),
     "get-launch-download-url": (cmd_get_launch_download_url, 1),
@@ -292,7 +288,6 @@ COMMANDS: dict[str, tuple[Callable[..., Any], int]] = {
 _LAUNCH_COMMANDS = {
     "get-launch",
     "get-launch-status",
-    "refine-plan",
     "start-launch-execution",
     "get-launch-download-url",
     "delete-launch",

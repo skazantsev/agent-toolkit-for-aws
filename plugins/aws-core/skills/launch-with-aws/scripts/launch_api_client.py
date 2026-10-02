@@ -263,28 +263,6 @@ def delete_launch(launch_id: str, region: Optional[str] = None) -> None:
         raise _client_error_to_api_error(err, "DELETE", f"/api/launches/{launch_id}") from err
 
 
-def refine_plan(
-    launch_id: str,
-    context_answers: Optional[Dict[str, str]] = None,
-    prompt: Optional[str] = None,
-    client_token: Optional[str] = None,
-    region: Optional[str] = None,
-) -> Any:
-    """POST /api/launches/:launchId/refine — provide context answers to refine the plan."""
-    client = _get_boto3_client(region)
-    kwargs: Dict[str, Any] = {"launchIdentifier": launch_id}
-    if context_answers:
-        kwargs["contextAnswers"] = context_answers
-    if prompt:
-        kwargs["prompt"] = prompt
-    if client_token:
-        kwargs["clientToken"] = client_token
-    try:
-        return client.refine_plan(**kwargs)
-    except ClientError as err:
-        raise _client_error_to_api_error(err, "POST", f"/api/launches/{launch_id}/refine") from err
-
-
 def start_launch_execution(
     launch_id: str, client_token: Optional[str] = None, region: Optional[str] = None
 ) -> Any:

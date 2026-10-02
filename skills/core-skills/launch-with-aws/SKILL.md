@@ -154,27 +154,16 @@ The launch starts in `analyzing` status and automatically progresses through ana
 python3 scripts/launch_with_aws.py get-launch-status <launch-id> --region <region>
 ```
 
-Poll until `status` is `planned` (ready for execution), `awaiting_input` (needs context answers — see step 4), or `failed`. Key status progression:
+Poll until `status` is `planned` (ready for execution) or `failed`; report any other status to the user. Key status progression:
 
 - `analyzing` → detecting app type and dependencies
-- `awaiting_input` → needs context answers (see `refine-plan`)
 - `planning` → generating migration plan
 - `planned` → ready for execution
 - `executing` → deployment in progress
 - `completed` → done
 - `failed` → check `failureReason`
 
-If `status` is `awaiting_input`, check `contextInputs` for the questions that need answering. Inputs with `required: true` must be answered before the launch can proceed; others are optional enrichment.
-
-### 4. Refine Plan (if awaiting_input)
-
-```bash
-python3 scripts/launch_with_aws.py refine-plan <launch-id> key1=value1 key2=value2 --region <region>
-```
-
-Provide context answers to refine the plan. Triggers re-planning.
-
-### 5. Get Full Launch Details & Confirm
+### 4. Get Full Launch Details & Confirm
 
 ```bash
 python3 scripts/launch_with_aws.py get-launch <launch-id> plan,cost_estimate --region <region>
@@ -197,7 +186,7 @@ Present the cost estimate and plan to the user. The `costEstimate` field in the 
 
 Do NOT call `start-launch-execution` until the user explicitly confirms.
 
-### 6. Start Execution
+### 5. Start Execution
 
 ```bash
 python3 scripts/launch_with_aws.py start-launch-execution <launch-id> --region <region>
@@ -205,7 +194,7 @@ python3 scripts/launch_with_aws.py start-launch-execution <launch-id> --region <
 
 Starts deployment. Then poll with `get-launch-status` until `status` is `completed` or `failed`. Sleep at least 30 seconds between polls.
 
-### 7. Download
+### 6. Download
 
 ```bash
 python3 scripts/launch_with_aws.py get-launch-download-url <launch-id> --region <region>
@@ -213,7 +202,7 @@ python3 scripts/launch_with_aws.py get-launch-download-url <launch-id> --region 
 
 **Always present the full download URL to the user** — they may need it to download the migrated snapshot directly or for reference.
 
-### 8. List or Delete Launches
+### 7. List or Delete Launches
 
 ```bash
 python3 scripts/launch_with_aws.py list-launches
@@ -222,7 +211,7 @@ python3 scripts/launch_with_aws.py delete-launch <launch-id> --region <region>
 
 `list-launches` queries both regions and returns `items` with a `region` on each launch; add `--region` to query one. A region that cannot be reached is reported under `errors` instead of failing the command.
 
-### 9. Post-Migration: Apply Migrated Code Locally
+### 8. Post-Migration: Apply Migrated Code Locally
 
 After obtaining the download URL (adapt commands for the user's platform if not POSIX):
 
