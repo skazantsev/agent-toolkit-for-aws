@@ -80,14 +80,17 @@ def _region() -> str:
     return _resolved_region().region
 
 
-def _launch_output(result: dict) -> dict:
-    """Unwrap a launch response for the agent, without the context questions.
+def _launch_output(result: dict, region: str) -> dict:
+    """Unwrap a launch response for the agent, tagged with the region it lives in.
 
-    The skill does not ask the optional context questions, and showing them
-    prompts the agent to ask anyway.
+    The API's launch object carries no region, so the region the command queried
+    is added for the agent to quote. The context questions are dropped: the skill
+    does not ask them, and showing them prompts the agent to ask anyway.
     """
     launch = result.get("launch", result)
     launch.pop("contextInputs", None)
+    launch["region"] = region
+    launch["regionName"] = SUPPORTED_REGIONS[region]
     return launch
 
 
@@ -148,8 +151,7 @@ def cmd_create_launch(source: str, name: str | None = None) -> None:
     For local paths, zips and uploads first. For GitHub URLs, passes directly.
     """
     display_name = (name or "").strip() or _default_repo_name(source)
-    resolved = _resolved_region()
-    region = resolved.region
+    region = _region()
 
     github = parse_github_url(source)
     if github:
@@ -169,19 +171,17 @@ def cmd_create_launch(source: str, name: str | None = None) -> None:
         launch_source = {"s3Upload": {"uploadId": target["uploadId"]}}
 
     result = api.create_launch(name=display_name, source=launch_source, region=region)
-    launch = _launch_output(result)
-    # The customer confirmed this region before the upload, so make it the default
-    # for later runs, and tell the agent which region the launch now lives in.
+    launch = _launch_output(result, region)
+    # The customer confirmed this region before the upload, so make it the default.
     save_region(region)
-    launch["region"] = region
-    launch["regionName"] = resolved.region_name
     _ok(launch)
 
 
 def cmd_get_launch(launch_id: str, include: str | None = None) -> None:
     """Get launch details, optionally including specific sections."""
-    result = api.get_launch(launch_id, include=include, region=_region())
-    _ok(_launch_output(result))
+    region = _region()
+    result = api.get_launch(launch_id, include=include, region=region)
+    _ok(_launch_output(result, region))
 
 
 def cmd_list_launches() -> None:
@@ -221,18 +221,22 @@ def cmd_delete_launch(launch_id: str) -> None:
 
 def cmd_start_launch_execution(launch_id: str) -> None:
     """Start execution of a launch's deployment plan."""
-    _ok(_launch_output(api.start_launch_execution(launch_id, region=_region())))
+    region = _region()
+    _ok(_launch_output(api.start_launch_execution(launch_id, region=region), region))
 
 
 def cmd_get_launch_status(launch_id: str) -> None:
     """Poll launch status including execution progress."""
-    raw = api.get_launch(launch_id, include="execution,cost_estimate", region=_region())
+    region = _region()
+    raw = api.get_launch(launch_id, include="execution,cost_estimate", region=region)
     result = raw.get("launch", raw)
     status = result.get("status")
     execution = result.get("execution")
 
     output = {
         "id": result.get("id"),
+        "region": region,
+        "regionName": SUPPORTED_REGIONS[region],
         "status": status,
         "isComplete": status == "completed",
         "isFailed": status == "failed",
