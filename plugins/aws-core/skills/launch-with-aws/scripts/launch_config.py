@@ -309,11 +309,15 @@ def region_from_aws_mcp_url(url: str) -> Optional[str]:
 
 
 def _profile_region() -> Optional[str]:
-    """Return the AWS profile region from the environment or ~/.aws/config.
+    """Return the AWS region from AWS_REGION, AWS_DEFAULT_REGION, or ~/.aws/config.
 
-    boto3 resolves this without credentials. A broken AWS config must not block
-    a migration, so any failure just means "no signal".
+    boto3 resolves the last two without credentials. A broken AWS config must not
+    block a migration, so any failure just means "no signal".
     """
+    # boto3 ignores AWS_REGION, though other AWS SDKs treat it as the standard.
+    aws_region = os.environ.get("AWS_REGION")
+    if aws_region:
+        return aws_region
     try:
         import boto3
 
