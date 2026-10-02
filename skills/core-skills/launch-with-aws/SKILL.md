@@ -81,10 +81,10 @@ Replit app infrastructure and code are migrated to AWS-native services, but exis
 
 ## Input Resolution
 
-Resolve the user's input to a local directory path or GitHub URL:
+Resolve the user's input to a local directory path:
 
 - If the user provides a **local path**: pass that path directly.
-- If the user provides a **GitHub URL**: pass it directly (the service clones it server-side).
+- If the user provides a **GitHub URL**: clone the repository locally and use that directory.
 - If neither is provided: use the current working directory. If it doesn't look like an app directory, ask the user for the path.
 
 ## Flow
@@ -134,17 +134,17 @@ python3 scripts/launch_with_aws.py resolve-region [--aws-mcp-url https://aws-mcp
 
 Returns `{"region": ..., "regionName": ..., "source": ..., "sourceLabel": ..., "baseUrl": ...}`. Quote `regionName`, `region` and `sourceLabel` in the confirmation below, verbatim.
 
-For a local directory, present this confirmation and wait for explicit approval:
+Present this confirmation and wait for explicit approval:
 
 > Your source code will be uploaded to the Launch with AWS service in **[regionName], [region]** ([sourceLabel]) to analyze your application and generate a migration plan. If you later approve execution, an AWS-hosted agent will modify a copy of your source code according to the plan and produce a migrated snapshot for you to download. Your uploaded source code and associated launch data are encrypted in transit and at rest and retained for up to 48 hours for recovery. Your data is never used to train AI models. We exclude Git history, Git-ignored files, and files matching common sensitive-file patterns. Sensitive-file filtering is best effort; review your project for secrets. Continue? Reply **"use EU"** or **"use US"** to run the migration in the other region instead.
 
-Do NOT call `create-launch` for a local directory until the user explicitly confirms; a missing or ambiguous response means no. "use EU" or "use US" is both a region choice and approval — pass it as `--region` and do not ask again.
+Do NOT call `create-launch` until the user explicitly confirms; a missing or ambiguous response means no. "use EU" or "use US" is both a region choice and approval — pass it as `--region` and do not ask again.
 
 ```bash
-python3 scripts/launch_with_aws.py create-launch <source-path-or-github-url> [name] --region <region>
+python3 scripts/launch_with_aws.py create-launch <app-directory> [name] --region <region>
 ```
 
-Creates a launch from a local directory (zips, uploads, then creates) or a GitHub URL (passes directly). Returns the full `launch` object including `launch.launchId` and the `region` it was created in, which becomes the user's saved default. **A launch exists only in its own region** — pass its `--region` on every later command.
+Zips the directory, uploads it, then creates the launch. Returns the full `launch` object including `launch.launchId` and the `region` it was created in, which becomes the user's saved default. **A launch exists only in its own region** — pass its `--region` on every later command.
 
 The launch starts in `analyzing` status and automatically progresses through analysis and planning.
 
