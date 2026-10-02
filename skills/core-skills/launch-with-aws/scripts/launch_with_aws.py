@@ -43,7 +43,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent))
 
 import launch_api_client as api
-from archive import ArchiveError, parse_github_url, zip_local_repo
+from archive import ArchiveError, zip_local_repo
 from auth import SessionExpiredError, session_status, sign_out, start_auth, wait_for_auth
 from launch_config import (
     ENV_BASE_URL,
@@ -95,9 +95,6 @@ def _launch_output(result: dict, region: str) -> dict:
 
 
 def _default_repo_name(source: str) -> str:
-    github = parse_github_url(source)
-    if github:
-        return github[1]
     cleaned = source.rstrip("/").rstrip(os.sep)
     return os.path.basename(cleaned) or "uploaded-app"
 
@@ -146,29 +143,22 @@ def cmd_sign_out() -> None:
 
 
 def cmd_create_launch(source: str, name: str | None = None) -> None:
-    """Create a launch from a local path or GitHub URL.
+    """Create a launch from a local directory: zip, upload, then create."""
+    # The service must not clone repositories itself; the agent clones locally.
+    if urlparse(source).scheme in ("http", "https"):
+        _fail(
+            "create-launch takes a local directory, not a repository URL. "
+            f"Clone {source} locally and pass the clone's directory."
+        )
+        return
 
-    For local paths, zips and uploads first. For GitHub URLs, passes directly.
-    """
     display_name = (name or "").strip() or _default_repo_name(source)
     region = _region()
 
-    github = parse_github_url(source)
-    if github:
-        # GitHub URL — pass as gitHub source directly.
-        launch_source = {"gitHub": {"repositoryUrl": source}}
-    elif urlparse(source).scheme in ("http", "https"):
-        _fail(
-            f"Unsupported repository URL: {source}. Provide a "
-            "https://github.com/owner/name URL or a local directory path."
-        )
-        return
-    else:
-        # Local directory — zip, upload, then pass as s3Upload source.
-        archive = zip_local_repo(source, display_name)
-        target = api.create_upload_url(region=region)
-        api.put_archive(target["uploadUrl"], archive)
-        launch_source = {"s3Upload": {"uploadId": target["uploadId"]}}
+    archive = zip_local_repo(source, display_name)
+    target = api.create_upload_url(region=region)
+    api.put_archive(target["uploadUrl"], archive)
+    launch_source = {"s3Upload": {"uploadId": target["uploadId"]}}
 
     result = api.create_launch(name=display_name, source=launch_source, region=region)
     launch = _launch_output(result, region)
